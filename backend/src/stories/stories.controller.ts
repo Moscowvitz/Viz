@@ -126,12 +126,13 @@ export class StoriesController {
     @Param("characterId") characterId: string,
     @Body() body: { prompt: string },
   ) {
-    return this.storiesService.interviewStoryCharacter(
+    const response = await this.storiesService.interviewStoryCharacter(
       id,
       characterId,
       req.user.sub,
       body.prompt,
     );
+    return { response };
   }
 
   @Post(":id/elements/:elementId/merge")

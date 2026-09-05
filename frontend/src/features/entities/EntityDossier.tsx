@@ -98,11 +98,12 @@ const CharacterInterviewModal: React.FC<{
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
 
         try {
-            const response = await interview({ storyId, characterId: character.id, prompt: userMsg }).unwrap();
-            setMessages(prev => [...prev, { role: 'ai', content: response }]);
+            const raw = await interview({ storyId, characterId: character.id, prompt: userMsg }).unwrap();
+            const text = typeof raw === 'string' ? raw : (raw as any)?.response || (raw as any)?.message || '*Silently nods.*';
+            setMessages(prev => [...prev, { role: 'ai', content: text }]);
         } catch (err) {
             console.error(err);
-            setMessages(prev => [...prev, { role: 'ai', content: '*Seem unable to speak right now.*' }]);
+            setMessages(prev => [...prev, { role: 'ai', content: '*Seems unable to speak right now.*' }]);
         }
     };
 

@@ -100,6 +100,10 @@ export const storiesApi = baseApi.injectEndpoints({
                 method: 'POST',
                 body: { prompt },
             }),
+            transformResponse: (res: any) => {
+                if (typeof res === 'string') return res;
+                return res?.response || res?.message || '';
+            },
         }),
         mergeElement: builder.mutation<void, { storyId: string; elementId: string; targetId: string }>({
             query: ({ storyId, elementId, targetId }) => ({

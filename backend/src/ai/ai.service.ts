@@ -91,7 +91,14 @@ export class AiService {
 
     if (apiKey) {
       try {
-        this.aiClient = new GoogleGenAI({ apiKey });
+        this.aiClient = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              "User-Agent": "aistudio-build",
+            },
+          },
+        });
         this.logger.log("[AiService] GoogleGenAI client initialized with GEMINI_API_KEY");
       } catch (err) {
         this.logger.warn("[AiService] Error initializing GoogleGenAI:", err);
@@ -101,18 +108,45 @@ export class AiService {
     }
   }
 
+  private readonly PRIMARY_MODEL = "gemini-3.6-flash";
+  private readonly FALLBACK_MODEL = "gemini-3.8-flash";
+
   private getClient(): GoogleGenAI | null {
     if (!this.aiClient) {
       const apiKey = this.configService.get<string>("GEMINI_API_KEY");
       if (apiKey) {
         try {
-          this.aiClient = new GoogleGenAI({ apiKey });
+          this.aiClient = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+              headers: {
+                "User-Agent": "aistudio-build",
+              },
+            },
+          });
         } catch (e) {
           // ignore
         }
       }
     }
     return this.aiClient;
+  }
+
+  private async generateWithFallback(client: GoogleGenAI, params: any) {
+    try {
+      return await client.models.generateContent({
+        ...params,
+        model: this.PRIMARY_MODEL,
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `[AiService] Primary model (${this.PRIMARY_MODEL}) encountered: ${err.message || err}. Attempting fallback (${this.FALLBACK_MODEL})...`
+      );
+      return await client.models.generateContent({
+        ...params,
+        model: this.FALLBACK_MODEL,
+      });
+    }
   }
 
   /**
@@ -141,7 +175,7 @@ export class AiService {
     const client = this.getClient();
     if (client) {
       try {
-        this.logger.log("[AiService] Analyzing narration with Structured Output via Gemini 2.5 Flash...");
+        this.logger.log(`[AiService] Analyzing narration with Structured Output via ${this.PRIMARY_MODEL}...`);
 
         const jsonSchema = zodToJsonSchema(AnalysisSchema as any, {
           $refStrategy: "none",
@@ -171,8 +205,7 @@ export class AiService {
 
         cleanSchema(jsonSchema);
 
-        const result = await client.models.generateContent({
-          model: "gemini-2.5-flash",
+        const result = await this.generateWithFallback(client, {
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -265,9 +298,11 @@ Return ONLY a valid JSON array of objects:
     const client = this.getClient();
     if (client) {
       try {
-        const result = await client.models.generateContent({
-          model: "gemini-2.5-flash",
+        const result = await this.generateWithFallback(client, {
           contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+          },
         });
         const text = result.text || "";
         const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
@@ -311,11 +346,11 @@ Your Response:`;
     const client = this.getClient();
     if (client) {
       try {
-        const result = await client.models.generateContent({
-          model: "gemini-2.5-flash",
+        const result = await this.generateWithFallback(client, {
           contents: prompt,
         });
-        return result.text || `[${characterName} considers your question with quiet intensity.]`;
+        const dialogue = result.text?.trim();
+        if (dialogue) return dialogue;
       } catch (error) {
         this.logger.error("[AiService] Error simulating dialogue:", error);
       }

@@ -13,9 +13,15 @@ The application has entered its final major development phase. We are transformi
 - [x] **Pro Export**: Markdown export for the World Bible.
 
 ### 🛠️ Phase 4: Active Tasks
-- [ ] **Cinematic Visuals**: Connect AI image generation to `visual_url`.
+- [ ] **Delete Story**: Story card deletion with confirmation modal.
+- [ ] **Search Stories**: Live search by name and description.
+- [ ] **Entity CRUD & Reclassification**: Manual entity creation, status toggle (draft vs confirmed), and type correction.
+- [ ] **Relationship CRUD**: Manual connection management (create, edit, delete) between entities.
+- [ ] **Cinematic Visuals**: Connect AI portrait/imagery generation to `visual_url`.
 - [ ] **Mobile Optimization**: Ensure complex modals work on phone screens.
 
-### 📅 Next Steps
-- Polish the Interview UI (maybe add streaming text effect).
-- Add "Level Up" animations.
+### 📅 Next Backlog
+- **Writer's Co-Pilot**: Lore consistency check and "What Happens Next?" dynamic branching engine.
+- **Visuals & Graph**: Interactive force-directed relationship web and distraction-free reader mode.
+- **Engagement**: Daily writing streak heatmap and level-up celebrations.
+- **Productivity**: Multi-format manuscript export (PDF/EPUB) and `Ctrl+K` command palette.
