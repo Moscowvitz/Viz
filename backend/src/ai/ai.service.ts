@@ -1,0 +1,327 @@
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+// --- Zod Schemas ---
+
+const AttributeSchema = z.object({
+  description: z
+    .string()
+    .optional()
+    .describe("Physical or personality description"),
+  traits: z.array(z.string()).optional().describe("Key personality traits"),
+  current_emotion: z
+    .string()
+    .optional()
+    .describe("Emotion shown in this specific narration"),
+  sentiment_score: z
+    .number()
+    .min(-10)
+    .max(10)
+    .optional()
+    .describe("Sentiment analysis score"),
+  type: z.string().optional().describe("Type of location/org if applicable"),
+});
+
+const CharacterSchema = z.object({
+  name: z.string().describe("The resolved full name of the character."),
+  mention_phrase: z
+    .string()
+    .describe("The exact phrase used to refer to them."),
+  attributes: AttributeSchema,
+  confidence: z.number().min(0).max(1).describe("Confidence score 0.0-1.0"),
+});
+
+const SimpleElementSchema = z.object({
+  name: z.string().describe("The resolved full name."),
+  mention_phrase: z.string().describe("The exact phrase used."),
+  attributes: AttributeSchema,
+  confidence: z.number().min(0).max(1).describe("Confidence score 0.0-1.0"),
+});
+
+const EventSchema = z.object({
+  title: z.string().describe("Short title for the event"),
+  description: z.string().describe("Detailed significance of the event"),
+  characters_involved: z
+    .array(z.string())
+    .describe("Names of characters involved"),
+  location: z.string().optional().describe("Location name where it happened"),
+  emotional_tone: z.string().describe("e.g. Hopeful, Tense, Tragic"),
+  importance: z.number().min(1).max(10).describe("Narrative weight 1-10"),
+  is_turning_point: z
+    .boolean()
+    .describe("If this changes the story significantly"),
+});
+
+const ConnectionSchema = z.object({
+  from: z.string().describe("Source entity name"),
+  to: z.string().describe("Target entity name"),
+  type: z.string().describe("Nature of connection (e.g. loves, hates)"),
+  weight: z.number().min(1).max(10).describe("Strength 1-10"),
+  emotional_charge: z
+    .number()
+    .min(-10)
+    .max(10)
+    .describe("Positive/Negative charge"),
+  description: z.string().describe("Reason for the connection"),
+});
+
+const AnalysisSchema = z.object({
+  extracted: z.object({
+    characters: z.array(CharacterSchema).default([]),
+    locations: z.array(SimpleElementSchema).default([]),
+    organizations: z.array(SimpleElementSchema).default([]),
+    events: z.array(EventSchema).default([]),
+    connections: z.array(ConnectionSchema).default([]),
+  }),
+  listener_response: z
+    .string()
+    .describe("Empathetic 1-sentence listener response"),
+});
+
+@Injectable()
+export class AiService {
+  private aiClient: GoogleGenAI | null = null;
+  private readonly logger = new Logger(AiService.name);
+
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>("GEMINI_API_KEY");
+
+    if (apiKey) {
+      try {
+        this.aiClient = new GoogleGenAI({ apiKey });
+        this.logger.log("[AiService] GoogleGenAI client initialized with GEMINI_API_KEY");
+      } catch (err) {
+        this.logger.warn("[AiService] Error initializing GoogleGenAI:", err);
+      }
+    } else {
+      this.logger.warn("[AiService] GEMINI_API_KEY is not configured. Narrative intelligence will use smart local fallbacks.");
+    }
+  }
+
+  private getClient(): GoogleGenAI | null {
+    if (!this.aiClient) {
+      const apiKey = this.configService.get<string>("GEMINI_API_KEY");
+      if (apiKey) {
+        try {
+          this.aiClient = new GoogleGenAI({ apiKey });
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    return this.aiClient;
+  }
+
+  /**
+   * Analyze narration to extract elements and generate a response in a single pass.
+   */
+  async analyzeNarration(narration: string, context?: any) {
+    const existingEntities =
+      context?.entities?.length > 0
+        ? `Existing Story Entities: ${context.entities.join(", ")}`
+        : "No existing entities yet.";
+
+    const prompt = `You are a hyper-competent Narrative Intelligence Engine. 
+    
+    TASK: Analyze the narration and extract key narrative components (characters, locations, events, connections).
+    Also generate a brief, empathetic 1-sentence "listener_response" acknowledging the developments.
+
+    Narration: "${narration}"
+    ${existingEntities}
+    ${context?.recentEvents ? `Recent Story Events: ${JSON.stringify(context.recentEvents)}` : ""}
+
+    CRITICAL: 
+    1. If a character/location matches an existing entity name, use that EXACT name.
+    2. Do not invent details not present in the text.
+    `;
+
+    const client = this.getClient();
+    if (client) {
+      try {
+        this.logger.log("[AiService] Analyzing narration with Structured Output via Gemini 2.5 Flash...");
+
+        const jsonSchema = zodToJsonSchema(AnalysisSchema as any, {
+          $refStrategy: "none",
+        });
+
+        const cleanSchema = (schema: any) => {
+          if (!schema || typeof schema !== "object") return;
+          delete schema.$schema;
+          delete schema.additionalProperties;
+
+          if (schema.properties) {
+            Object.values(schema.properties).forEach(cleanSchema);
+          }
+          if (schema.items) {
+            cleanSchema(schema.items);
+          }
+          if (schema.anyOf) {
+            schema.anyOf.forEach(cleanSchema);
+          }
+          if (schema.allOf) {
+            schema.allOf.forEach(cleanSchema);
+          }
+          if (schema.oneOf) {
+            schema.oneOf.forEach(cleanSchema);
+          }
+        };
+
+        cleanSchema(jsonSchema);
+
+        const result = await client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: jsonSchema,
+          },
+        });
+
+        const responseText = result.text;
+        if (responseText) {
+          const parsed = AnalysisSchema.parse(JSON.parse(responseText));
+          return parsed;
+        }
+      } catch (error) {
+        this.logger.error("[AiService] Gemini analysis failed:", error);
+      }
+    }
+
+    // Heuristic fallback for offline/demo operation
+    return this.generateHeuristicAnalysis(narration, context);
+  }
+
+  private generateHeuristicAnalysis(narration: string, context?: any) {
+    const words = narration.split(/\s+/);
+    const capitalized = words.filter(
+      (w) => /^[A-Z][a-z]+$/.test(w) && !['The', 'A', 'An', 'He', 'She', 'They', 'It', 'In', 'On', 'At', 'From', 'With', 'Then', 'When'].includes(w)
+    );
+    const uniqueNames = Array.from(new Set(capitalized));
+    const mainCharacter = uniqueNames[0] || (context?.entities?.[0] ? context.entities[0] : 'Narrator');
+
+    const characters = uniqueNames.slice(0, 2).map((name) => ({
+      name,
+      mention_phrase: name,
+      attributes: {
+        traits: ['Key Narrative Figure'],
+        current_emotion: 'Intrigued',
+        sentiment_score: 2,
+      },
+      confidence: 0.85,
+    }));
+
+    const events = [
+      {
+        title: narration.length > 40 ? `${narration.slice(0, 36)}...` : narration,
+        description: narration,
+        characters_involved: characters.map((c) => c.name),
+        emotional_tone: 'Mysterious',
+        importance: 6,
+        is_turning_point: false,
+      },
+    ];
+
+    return {
+      extracted: {
+        characters,
+        locations: [],
+        organizations: [],
+        events,
+        connections: characters.length >= 2 ? [
+          {
+            from: characters[0].name,
+            to: characters[1].name,
+            type: 'interacts_with',
+            weight: 5,
+            emotional_charge: 1,
+            description: 'Encountered in the scene',
+          },
+        ] : [],
+      },
+      listener_response: `A compelling development unfolds involving ${mainCharacter}. The scene deepens.`,
+    };
+  }
+
+  /**
+   * Brainstorm story title and description options based on context
+   */
+  async brainstormStoryTheme(context: any) {
+    const prompt = `You are a world-class narrative architect. Based on the following world bible and timeline, suggest 3 distinct "Vibes" for this story.
+Each vibe should have a compelling title and a 1-sentence evocative description.
+
+World Bible (Characters, Places, etc.): ${JSON.stringify(context.entities)}
+Timeline (Key Events): ${JSON.stringify(context.moments)}
+
+Return ONLY a valid JSON array of objects:
+[
+  { "title": "Option 1 Title", "description": "Evocative summary" },
+  { "title": "Option 2 Title", "description": "Evocative summary" },
+  { "title": "Option 3 Title", "description": "Evocative summary" }
+]`;
+
+    const client = this.getClient();
+    if (client) {
+      try {
+        const result = await client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+        });
+        const text = result.text || "";
+        const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        return JSON.parse(clean);
+      } catch (error) {
+        this.logger.error("[AiService] Error brainstorming theme:", error);
+      }
+    }
+
+    return [
+      { title: "Echoes of the Unseen", description: "A mystical journey into forgotten realms where memory shapes reality." },
+      { title: "The Obsidian Frontier", description: "High-stakes exploration of ancient ruins holding cosmic machinery." },
+      { title: "Whispers in the Starlight", description: "An intimate character drama set against the backdrop of an awakening mystery." },
+    ];
+  }
+
+  /**
+   * Simulate a conversation with a specific character
+   */
+  async simulateCharacterDialogue(
+    characterName: string,
+    attributes: any,
+    userPrompt: string,
+    context: any,
+  ) {
+    const prompt = `You are playing the role of a character in a story.
+    
+Character Name: ${characterName}
+Character Attributes/Traits: ${JSON.stringify(attributes)}
+Recent Story Events: ${JSON.stringify(context.moments)}
+
+The creator (User) asks you: "${userPrompt}"
+
+CRITICAL RULE:
+1. Speak ONLY as this character. Use their voice, slang, world-view, and limitations.
+2. Keep it brief (2-3 sentences max).
+3. If the user asks about something you shouldn't know, express confusion.
+
+Your Response:`;
+
+    const client = this.getClient();
+    if (client) {
+      try {
+        const result = await client.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+        });
+        return result.text || `[${characterName} considers your question with quiet intensity.]`;
+      } catch (error) {
+        this.logger.error("[AiService] Error simulating dialogue:", error);
+      }
+    }
+
+    const traits = attributes?.traits?.join(", ") || "mysterious persona";
+    return `"${userPrompt}?" ${characterName} turns to face you, exhibiting traits of ${traits}. "Some questions unearth truths neither of us are prepared to face."`;
+  }
+}

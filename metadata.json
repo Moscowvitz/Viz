@@ -1,0 +1,6 @@
+{
+  "name": "Story Engine",
+  "description": "Narrative Intelligence Platform - Build stories through natural narration with AI assistance, character simulation, and timeline tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
