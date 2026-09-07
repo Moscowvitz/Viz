@@ -56,6 +56,15 @@ export class StoriesController {
     return this.storiesService.getStoryElements(id, req.user.sub);
   }
 
+  @Post(":id/elements")
+  async createElement(
+    @Request() req,
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return this.storiesService.createStoryElement(id, req.user.sub, body);
+  }
+
   @Get(":id/timeline")
   async getTimeline(@Request() req, @Param("id") id: string) {
     return this.storiesService.getStoryTimeline(id, req.user.sub);
@@ -64,6 +73,39 @@ export class StoriesController {
   @Get(":id/connections")
   async getConnections(@Request() req, @Param("id") id: string) {
     return this.storiesService.getStoryConnections(id, req.user.sub);
+  }
+
+  @Post(":id/connections")
+  async createConnection(
+    @Request() req,
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return this.storiesService.createStoryConnection(id, req.user.sub, body);
+  }
+
+  @Patch(":id/connections/:connId")
+  async updateConnection(
+    @Request() req,
+    @Param("id") id: string,
+    @Param("connId") connId: string,
+    @Body() updates: any,
+  ) {
+    return this.storiesService.updateStoryConnection(
+      id,
+      connId,
+      req.user.sub,
+      updates,
+    );
+  }
+
+  @Delete(":id/connections/:connId")
+  async deleteConnection(
+    @Request() req,
+    @Param("id") id: string,
+    @Param("connId") connId: string,
+  ) {
+    return this.storiesService.deleteStoryConnection(id, connId, req.user.sub);
   }
 
   @Get(":id/mentions")
@@ -93,6 +135,19 @@ export class StoriesController {
     @Param("elementId") elementId: string,
   ) {
     return this.storiesService.deleteStoryElement(id, elementId, req.user.sub);
+  }
+
+  @Post(":id/elements/:elementId/visual")
+  async generateElementVisual(
+    @Request() req,
+    @Param("id") id: string,
+    @Param("elementId") elementId: string,
+  ) {
+    return this.storiesService.generateElementVisual(
+      id,
+      elementId,
+      req.user.sub,
+    );
   }
 
   @Patch(":id/timeline/:momentId")

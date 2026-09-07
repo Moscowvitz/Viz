@@ -32,6 +32,7 @@ export const SignupPage: React.FC = () => {
                 await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token || '',
+                    user: data.user || { id: 'demo-user-123', email, created_at: new Date().toISOString() },
                 });
             }
 

@@ -19,7 +19,13 @@ function createMockAuthClient(): any {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          if (!parsed.user) {
+            parsed.user = defaultUser;
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       // fallback
@@ -53,10 +59,22 @@ function createMockAuthClient(): any {
   return {
     auth: {
       async getSession() {
+        if (!currentSession) {
+          currentSession = getStoredSession();
+        }
         return { data: { session: currentSession }, error: null };
       },
       async getUser() {
-        return { data: { user: currentSession?.user || null }, error: null };
+        if (!currentSession) {
+          currentSession = getStoredSession();
+        }
+        return { data: { user: currentSession?.user || defaultUser }, error: null };
+      },
+      async refreshSession() {
+        if (!currentSession) {
+          currentSession = getStoredSession();
+        }
+        return { data: { session: currentSession, user: currentSession?.user || defaultUser }, error: null };
       },
       async signInWithPassword({ email }: { email: string; password?: string }) {
         currentSession = {
@@ -78,7 +96,10 @@ function createMockAuthClient(): any {
         return this.signInWithPassword({ email });
       },
       async setSession(session: any) {
-        currentSession = session;
+        currentSession = {
+          ...session,
+          user: session?.user || currentSession?.user || defaultUser,
+        };
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSession));
         } catch (e) {}
@@ -108,9 +129,22 @@ function createMockAuthClient(): any {
         };
       },
     },
-    // Stub for direct supabase.from calls if any exist in frontend
-    from: () => ({
-      select: () => Promise.resolve({ data: [], error: null }),
+    // Stubs for direct supabase.from calls in frontend
+    from: (_table: string) => ({
+      select: (_cols?: string) => ({
+        eq: (_col: string, _val: any) => ({
+          single: () => Promise.resolve({
+            data: {
+              id: currentSession?.user?.id || 'demo-user-123',
+              email: currentSession?.user?.email || 'creator@storyengine.ai',
+              xp: 350,
+              level: 3,
+              display_name: 'Master Storyteller'
+            },
+            error: null
+          }),
+        }),
+      }),
       insert: () => Promise.resolve({ data: null, error: null }),
       update: () => Promise.resolve({ data: null, error: null }),
       delete: () => Promise.resolve({ data: null, error: null }),

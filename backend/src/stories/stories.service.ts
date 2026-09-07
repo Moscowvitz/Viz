@@ -72,6 +72,16 @@ export class StoriesService {
   }
 
   async deleteStory(storyId: string, userId: string) {
+    await this.getStoryById(storyId, userId);
+
+    // Clean up dependent child rows safely to avoid foreign key errors
+    await this.supabase.from("narrative_connections").delete().eq("story_id", storyId);
+    await this.supabase.from("entity_mentions").delete().eq("story_id", storyId);
+    await this.supabase.from("narrative_elements").delete().eq("story_id", storyId);
+    await this.supabase.from("story_moments").delete().eq("story_id", storyId);
+    await this.supabase.from("ai_suggestions").delete().eq("story_id", storyId);
+    await this.supabase.from("raw_narrations").delete().eq("story_id", storyId);
+
     const { error } = await this.supabase
       .from("stories")
       .delete()
@@ -79,7 +89,7 @@ export class StoriesService {
       .eq("user_id", userId);
 
     if (error) throw error;
-    return { success: true };
+    return { success: true, id: storyId };
   }
 
   async brainstormStoryOptions(storyId: string, userId: string) {
@@ -168,15 +178,132 @@ export class StoriesService {
     return data;
   }
 
+  async createStoryElement(storyId: string, userId: string, payload: any) {
+    await this.getStoryById(storyId, userId);
+    const { data, error } = await this.supabase
+      .from("narrative_elements")
+      .insert({
+        story_id: storyId,
+        name: payload.name?.trim() || "Untitled Entity",
+        element_type: payload.element_type || "character",
+        attributes: payload.attributes || {},
+        confidence_score: payload.confidence_score ?? 1.0,
+        status: payload.status || "confirmed",
+        user_confirmed: payload.user_confirmed !== undefined ? payload.user_confirmed : true,
+        visual_url: payload.visual_url || payload.attributes?.visual_url || null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   async deleteStoryElement(storyId: string, elementId: string, userId: string) {
     await this.getStoryById(storyId, userId);
+    await this.supabase
+      .from("narrative_connections")
+      .delete()
+      .eq("story_id", storyId)
+      .or(`from_id.eq.${elementId},to_id.eq.${elementId}`);
+    await this.supabase
+      .from("entity_mentions")
+      .delete()
+      .eq("story_id", storyId)
+      .eq("element_id", elementId);
     const { error } = await this.supabase
       .from("narrative_elements")
       .delete()
       .eq("id", elementId)
       .eq("story_id", storyId);
     if (error) throw error;
-    return { success: true };
+    return { success: true, id: elementId };
+  }
+
+  async generateElementVisual(storyId: string, elementId: string, userId: string) {
+    await this.getStoryById(storyId, userId);
+    const { data: element, error: fetchErr } = await this.supabase
+      .from("narrative_elements")
+      .select("*")
+      .eq("id", elementId)
+      .eq("story_id", storyId)
+      .single();
+    if (fetchErr || !element) throw new Error("Element not found");
+
+    const visualUrl = await this.aiService.generateEntityVisual(
+      element.name,
+      element.element_type,
+      element.attributes?.description || "",
+      element.attributes?.traits || [],
+    );
+
+    const updatedAttributes = {
+      ...(element.attributes || {}),
+      visual_url: visualUrl,
+    };
+
+    const { data: updated, error: updateErr } = await this.supabase
+      .from("narrative_elements")
+      .update({
+        visual_url: visualUrl,
+        attributes: updatedAttributes,
+      })
+      .eq("id", elementId)
+      .eq("story_id", storyId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+    return updated;
+  }
+
+  async createStoryConnection(storyId: string, userId: string, payload: any) {
+    await this.getStoryById(storyId, userId);
+    const { data, error } = await this.supabase
+      .from("narrative_connections")
+      .insert({
+        story_id: storyId,
+        from_id: payload.from_id,
+        to_id: payload.to_id,
+        connection_type: payload.connection_type || "related_to",
+        description: payload.description || "",
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateStoryConnection(
+    storyId: string,
+    connId: string,
+    userId: string,
+    updates: any,
+  ) {
+    await this.getStoryById(storyId, userId);
+    const { data, error } = await this.supabase
+      .from("narrative_connections")
+      .update(updates)
+      .eq("id", connId)
+      .eq("story_id", storyId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteStoryConnection(
+    storyId: string,
+    connId: string,
+    userId: string,
+  ) {
+    await this.getStoryById(storyId, userId);
+    const { error } = await this.supabase
+      .from("narrative_connections")
+      .delete()
+      .eq("id", connId)
+      .eq("story_id", storyId);
+    if (error) throw error;
+    return { success: true, id: connId };
   }
 
   async updateStoryMoment(

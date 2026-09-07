@@ -31,6 +31,7 @@ export const LoginPage: React.FC = () => {
                 await supabase.auth.setSession({
                     access_token: data.session.access_token,
                     refresh_token: data.session.refresh_token || '',
+                    user: data.user || { id: 'demo-user-123', email, created_at: new Date().toISOString() },
                 });
             }
 
@@ -83,6 +84,40 @@ export const LoginPage: React.FC = () => {
                     className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50"
                 >
                     {loading ? 'Entering...' : 'Enter Story Engine'}
+                </button>
+
+                <button
+                    type="button"
+                    disabled={loading}
+                    onClick={async () => {
+                        setEmail('moscowvitz@example.com');
+                        setPassword('testpassword123');
+                        setLoading(true);
+                        setError(null);
+                        try {
+                            const res = await fetch('/api/auth/login', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: 'moscowvitz@example.com', password: 'testpassword123' }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.message || 'Login failed');
+                            if (data.session) {
+                                await supabase.auth.setSession({
+                                    access_token: data.session.access_token,
+                                    refresh_token: data.session.refresh_token || '',
+                                    user: data.user || { id: 'demo-user-123', email: 'moscowvitz@example.com', created_at: new Date().toISOString() },
+                                });
+                            }
+                            navigate('/');
+                        } catch (err: any) {
+                            setError(err.message || 'Demo login failed');
+                            setLoading(false);
+                        }
+                    }}
+                    className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors text-sm"
+                >
+                    Quick Start with Demo Account
                 </button>
 
                 <p className="text-center text-sm text-slate-600">

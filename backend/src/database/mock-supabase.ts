@@ -227,6 +227,8 @@ class QueryBuilder {
   private isSingle = false;
   private limitCount?: number;
   private selectedFields: string[] = ['*'];
+  private pendingUpdate: any = null;
+  private isDelete = false;
 
   constructor(tableName: string, store: MockTableData) {
     this.tableName = tableName;
@@ -250,6 +252,20 @@ class QueryBuilder {
 
   in(column: string, values: any[]) {
     this.data = this.data.filter((item) => values.includes(item[column]));
+    return this;
+  }
+
+  or(clause: string) {
+    const conditions = clause.split(',').map(c => c.trim());
+    this.data = this.data.filter(item => {
+      return conditions.some(cond => {
+        const parts = cond.split('.');
+        if (parts.length === 3 && parts[1] === 'eq') {
+          return item[parts[0]] === parts[2];
+        }
+        return false;
+      });
+    });
     return this;
   }
 
@@ -299,36 +315,42 @@ class QueryBuilder {
   }
 
   update(updates: any) {
-    const idsToUpdate = new Set(this.data.map((d) => d.id));
-    const tableList = this.store[this.tableName];
-    const updatedList: any[] = [];
-
-    for (let i = 0; i < tableList.length; i++) {
-      if (idsToUpdate.has(tableList[i].id)) {
-        tableList[i] = {
-          ...tableList[i],
-          ...updates,
-          updated_at: new Date().toISOString(),
-        };
-        updatedList.push(tableList[i]);
-      }
-    }
-    this.data = updatedList;
+    this.pendingUpdate = updates;
     return this;
   }
 
   delete() {
-    const idsToDelete = new Set(this.data.map((d) => d.id));
-    this.store[this.tableName] = this.store[this.tableName].filter(
-      (item) => !idsToDelete.has(item.id)
-    );
-    this.data = [];
+    this.isDelete = true;
     return this;
   }
 
   // Promise resolution
   then(resolve: (val: { data: any; error: any }) => any, reject?: (err: any) => any) {
     try {
+      if (this.pendingUpdate) {
+        const idsToUpdate = new Set(this.data.map((d) => d.id));
+        const tableList = this.store[this.tableName];
+        const updatedList: any[] = [];
+
+        for (let i = 0; i < tableList.length; i++) {
+          if (idsToUpdate.has(tableList[i].id)) {
+            tableList[i] = {
+              ...tableList[i],
+              ...this.pendingUpdate,
+              updated_at: new Date().toISOString(),
+            };
+            updatedList.push(tableList[i]);
+          }
+        }
+        this.data = updatedList;
+      } else if (this.isDelete) {
+        const idsToDelete = new Set(this.data.map((d) => d.id));
+        this.store[this.tableName] = this.store[this.tableName].filter(
+          (item) => !idsToDelete.has(item.id)
+        );
+        this.data = [];
+      }
+
       let result = this.data;
 
       // Handle joined fields for suggestions if requested

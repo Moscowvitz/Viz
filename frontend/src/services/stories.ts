@@ -4,6 +4,7 @@ export interface Story {
     id: string;
     title: string;
     description?: string;
+    genre?: string;
     created_at: string;
 }
 
@@ -18,6 +19,13 @@ export const storiesApi = baseApi.injectEndpoints({
                 url: '/stories',
                 method: 'POST',
                 body,
+            }),
+            invalidatesTags: ['Story'],
+        }),
+        deleteStory: builder.mutation<{ success: boolean }, string>({
+            query: (id) => ({
+                url: `/stories/${id}`,
+                method: 'DELETE',
             }),
             invalidatesTags: ['Story'],
         }),
@@ -64,6 +72,14 @@ export const storiesApi = baseApi.injectEndpoints({
                     ? [...result.map(({ id }) => ({ type: 'Mention' as const, id })), 'Mention']
                     : ['Mention'],
         }),
+        createElement: builder.mutation<any, { storyId: string; element: any }>({
+            query: ({ storyId, element }) => ({
+                url: `/stories/${storyId}/elements`,
+                method: 'POST',
+                body: element,
+            }),
+            invalidatesTags: ['Element'],
+        }),
         updateElement: builder.mutation<any, { storyId: string; elementId: string; updates: any }>({
             query: ({ storyId, elementId, updates }) => ({
                 url: `/stories/${storyId}/elements/${elementId}`,
@@ -77,7 +93,30 @@ export const storiesApi = baseApi.injectEndpoints({
                 url: `/stories/${storyId}/elements/${elementId}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: ['Element'],
+            invalidatesTags: ['Element', 'Connection'],
+        }),
+        createConnection: builder.mutation<any, { storyId: string; connection: any }>({
+            query: ({ storyId, connection }) => ({
+                url: `/stories/${storyId}/connections`,
+                method: 'POST',
+                body: connection,
+            }),
+            invalidatesTags: ['Connection'],
+        }),
+        updateConnection: builder.mutation<any, { storyId: string; connId: string; updates: any }>({
+            query: ({ storyId, connId, updates }) => ({
+                url: `/stories/${storyId}/connections/${connId}`,
+                method: 'PATCH',
+                body: updates,
+            }),
+            invalidatesTags: (_result, _error, { connId }) => [{ type: 'Connection', id: connId }, 'Connection'],
+        }),
+        deleteConnection: builder.mutation<{ success: boolean }, { storyId: string; connId: string }>({
+            query: ({ storyId, connId }) => ({
+                url: `/stories/${storyId}/connections/${connId}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Connection'],
         }),
         updateMoment: builder.mutation<any, { storyId: string; momentId: string; updates: any }>({
             query: ({ storyId, momentId, updates }) => ({
@@ -113,23 +152,36 @@ export const storiesApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: ['Element', 'Mention', 'Moment', 'Connection'],
         }),
+        generateElementVisual: builder.mutation<any, { storyId: string; elementId: string }>({
+            query: ({ storyId, elementId }) => ({
+                url: `/stories/${storyId}/elements/${elementId}/visual`,
+                method: 'POST',
+            }),
+            invalidatesTags: (_result, _error, { elementId }) => [{ type: 'Element', id: elementId }, 'Element'],
+        }),
     }),
 });
 
 export const {
     useGetStoriesQuery,
     useCreateStoryMutation,
+    useDeleteStoryMutation,
     useGetStoryByIdQuery,
     useUpdateStoryMutation,
     useBrainstormOptionsMutation,
     useGetStoryElementsQuery,
-    useGetStoryTimelineQuery,
-    useGetStoryConnectionsQuery,
-    useGetStoryMentionsQuery,
+    useCreateElementMutation,
     useUpdateElementMutation,
     useDeleteElementMutation,
+    useGenerateElementVisualMutation,
+    useGetStoryTimelineQuery,
     useUpdateMomentMutation,
     useDeleteMomentMutation,
+    useGetStoryConnectionsQuery,
+    useCreateConnectionMutation,
+    useUpdateConnectionMutation,
+    useDeleteConnectionMutation,
+    useGetStoryMentionsQuery,
     useInterviewCharacterMutation,
     useMergeElementMutation,
 } = storiesApi;

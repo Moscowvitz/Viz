@@ -13,12 +13,12 @@ The application has entered its final major development phase. We are transformi
 - [x] **Pro Export**: Markdown export for the World Bible.
 
 ### 🛠️ Phase 4: Active Tasks
-- [ ] **Delete Story**: Story card deletion with confirmation modal.
-- [ ] **Search Stories**: Live search by name and description.
-- [ ] **Entity CRUD & Reclassification**: Manual entity creation, status toggle (draft vs confirmed), and type correction.
-- [ ] **Relationship CRUD**: Manual connection management (create, edit, delete) between entities.
-- [ ] **Cinematic Visuals**: Connect AI portrait/imagery generation to `visual_url`.
-- [ ] **Mobile Optimization**: Ensure complex modals work on phone screens.
+- [x] **Delete Story**: Story card deletion with confirmation modal.
+- [x] **Search Stories**: Live search by name and description.
+- [x] **Entity CRUD & Reclassification**: Manual entity creation, status toggle (draft vs confirmed), and type correction.
+- [x] **Relationship CRUD**: Manual connection management (create, edit, delete) between entities.
+- [x] **Cinematic Visuals**: Connect AI portrait/imagery generation to `visual_url`.
+- [x] **Mobile Optimization**: Ensure complex modals work on phone screens.
 
 ### 📅 Next Backlog
 - **Writer's Co-Pilot**: Lore consistency check and "What Happens Next?" dynamic branching engine.

@@ -359,4 +359,63 @@ Your Response:`;
     const traits = attributes?.traits?.join(", ") || "mysterious persona";
     return `"${userPrompt}?" ${characterName} turns to face you, exhibiting traits of ${traits}. "Some questions unearth truths neither of us are prepared to face."`;
   }
+
+  /**
+   * Generate cinematic portrait or concept visual for an entity
+   */
+  async generateEntityVisual(
+    name: string,
+    type: string,
+    description: string = "",
+    traits: string[] = [],
+  ): Promise<string> {
+    const prompt = `Cinematic high-detail ${type} concept art portrait of "${name}". Context: ${description || "legendary figure"}. Key traits: ${traits.join(", ") || "evocative atmosphere"}. Dramatic volumetric lighting, rich color, 8k resolution fantasy/sci-fi illustration.`;
+
+    const client = this.getClient();
+    if (client) {
+      try {
+        const response = await (client as any).models.generateImages({
+          model: "imagen-3.0-generate-002",
+          prompt,
+          config: {
+            numberOfImages: 1,
+            outputMimeType: "image/jpeg",
+            aspectRatio: "1:1",
+          },
+        });
+        const bytes = response?.generatedImages?.[0]?.image?.imageBytes;
+        if (bytes) {
+          return `data:image/jpeg;base64,${bytes}`;
+        }
+      } catch (err) {
+        this.logger.warn(`[AiService] Imagen generation not available, falling back to curated cinematic visual: ${err}`);
+      }
+    }
+
+    // High quality thematic fallbacks based on type and keywords
+    const keywords = `${name} ${description} ${traits.join(" ")}`.toLowerCase();
+    if (type === "location") {
+      if (keywords.includes("spire") || keywords.includes("tower") || keywords.includes("castle") || keywords.includes("citadel")) {
+        return "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80";
+      }
+      if (keywords.includes("forest") || keywords.includes("tree") || keywords.includes("woods") || keywords.includes("grove")) {
+        return "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80";
+      }
+      if (keywords.includes("cyber") || keywords.includes("neon") || keywords.includes("future") || keywords.includes("city")) {
+        return "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80";
+      }
+      return "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
+    } else if (type === "organization") {
+      return "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=800&q=80";
+    } else {
+      // Character
+      if (keywords.includes("karen") || keywords.includes("lady") || keywords.includes("queen") || keywords.includes("sorceress") || keywords.includes("woman")) {
+        return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
+      }
+      if (keywords.includes("ronald") || keywords.includes("lord") || keywords.includes("king") || keywords.includes("warrior") || keywords.includes("knight")) {
+        return "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80";
+      }
+      return "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=800&q=80";
+    }
+  }
 }
