@@ -5,6 +5,7 @@ import { useGetNarrationsQuery, useAddNarrationMutation } from '../../services/n
 import {
     Send, ArrowLeft, Sparkles,
     Share2, User, Book, Settings, Check, X, Wand2, ChevronRight, Activity,
+    FileText,
     Clock
 } from 'lucide-react';
 import { StoryInterview } from './StoryInterview';
@@ -122,6 +123,108 @@ const StoryEditModal: React.FC<{
     );
 };
 
+const StoryDetailsPanel: React.FC<{
+    story: any;
+    onSave: (updates: any) => Promise<void>;
+}> = ({ story, onSave }) => {
+    const [title, setTitle] = useState(story?.title || '');
+    const [description, setDescription] = useState(story?.description || '');
+    const [genre, setGenre] = useState(story?.genre || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setTitle(story?.title || '');
+        setDescription(story?.description || '');
+        setGenre(story?.genre || '');
+    }, [story]);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            await onSave({
+                title: title.trim(),
+                description: description.trim(),
+                genre: genre.trim() || undefined,
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-10">
+            <form onSubmit={handleSave} className="max-w-3xl mx-auto">
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-8 md:p-10 border-b border-slate-100">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                                <FileText className="w-5 h-5" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900">Story Details</h3>
+                        </div>
+                        <p className="text-sm text-slate-500 ml-1">
+                            Shape the identity and premise of your story.
+                        </p>
+                    </div>
+
+                    <div className="p-8 md:p-10 space-y-6">
+                        <div className="space-y-2">
+                            <label htmlFor="story-title" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                                Story Name
+                            </label>
+                            <input
+                                id="story-title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                required
+                                className="w-full text-xl font-bold text-slate-900 bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 outline-none focus:border-indigo-100 focus:bg-white transition-all"
+                                placeholder="Name your story"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="story-description" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                                Story Description
+                            </label>
+                            <textarea
+                                id="story-description"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows={6}
+                                className="w-full text-slate-700 leading-relaxed bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 outline-none focus:border-indigo-100 focus:bg-white transition-all resize-y"
+                                placeholder="Describe the world, premise, or central conflict..."
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="story-genre" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                                Genre
+                            </label>
+                            <input
+                                id="story-genre"
+                                value={genre}
+                                onChange={(e) => setGenre(e.target.value)}
+                                className="w-full text-sm text-slate-700 bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 outline-none focus:border-indigo-100 focus:bg-white transition-all"
+                                placeholder="e.g. Fantasy, Mystery, Science Fiction"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSaving || !title.trim()}
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Check className="w-4 h-4" />
+                            {isSaving ? 'Saving Story Details...' : 'Save Story Details'}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    );
+};
+
 export const StorySession: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -131,7 +234,7 @@ export const StorySession: React.FC = () => {
     const [updateStory] = useUpdateStoryMutation();
 
     const [input, setInput] = useState('');
-    const [activeTab, setActiveTab] = useState<'narration' | 'nexus' | 'entities' | 'bible' | 'timeline'>('narration');
+    const [activeTab, setActiveTab] = useState<'narration' | 'nexus' | 'entities' | 'bible' | 'timeline' | 'details'>('narration');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -295,6 +398,13 @@ export const StorySession: React.FC = () => {
                         <Clock className="w-4 h-4" />
                         Timeline
                     </button>
+                    <button
+                        onClick={() => setActiveTab('details')}
+                        className={`group flex items-center gap-2 h-full border-b-2 transition-all text-[11px] font-bold uppercase tracking-widest ${activeTab === 'details' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <FileText className="w-4 h-4" />
+                        Story Details
+                    </button>
                 </div>
 
                 <div className="flex-1 relative flex flex-col overflow-hidden">
@@ -366,6 +476,8 @@ export const StorySession: React.FC = () => {
                         <div className="flex-1 bg-slate-50 p-10 overflow-y-auto flex flex-col items-center"><div className="w-full max-w-md"><EntityList /></div></div>
                     ) : activeTab === 'timeline' ? (
                         <div className="flex-1 bg-slate-50 p-10 overflow-y-auto flex flex-col"><Timeline variant="vertical" /></div>
+                    ) : activeTab === 'details' ? (
+                        <StoryDetailsPanel story={story} onSave={handleSaveStory} />
                     ) : (
                         <div className="flex-1 overflow-hidden p-10 bg-slate-50 flex flex-col"><EntityDossier /></div>
                     )}
