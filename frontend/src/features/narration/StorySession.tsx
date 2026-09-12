@@ -131,7 +131,7 @@ export const StorySession: React.FC = () => {
     const [updateStory] = useUpdateStoryMutation();
 
     const [input, setInput] = useState('');
-    const [activeTab, setActiveTab] = useState<'narration' | 'nexus' | 'entities' | 'bible'>('narration');
+    const [activeTab, setActiveTab] = useState<'narration' | 'nexus' | 'entities' | 'bible' | 'timeline'>('narration');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -195,7 +195,7 @@ export const StorySession: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-white overflow-hidden font-sans text-slate-900">
-            {/* Left Sidebar - Vertical Narrative Timeline */}
+            {/* Left Sidebar - Dashboard Navigation */}
             <div className="hidden lg:flex w-72 bg-slate-50/50 border-r border-slate-100 flex-col">
                 <div className="p-8">
                     <button
@@ -207,13 +207,6 @@ export const StorySession: React.FC = () => {
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-hide">
-                    <div className="mb-8">
-                        <h3 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5" />
-                            Story Timeline
-                        </h3>
-                        <Timeline variant="vertical" />
-                    </div>
                 </div>
             </div>
 
@@ -295,6 +288,13 @@ export const StorySession: React.FC = () => {
                         <Book className="w-4 h-4" />
                         World Bible
                     </button>
+                    <button
+                        onClick={() => setActiveTab('timeline')}
+                        className={`group flex items-center gap-2 h-full border-b-2 transition-all text-[11px] font-bold uppercase tracking-widest ${activeTab === 'timeline' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Clock className="w-4 h-4" />
+                        Timeline
+                    </button>
                 </div>
 
                 <div className="flex-1 relative flex flex-col overflow-hidden">
@@ -364,6 +364,8 @@ export const StorySession: React.FC = () => {
                         <div className="flex-1 bg-slate-50 p-10 overflow-y-auto flex flex-col"><NarrativeGraph /></div>
                     ) : activeTab === 'entities' ? (
                         <div className="flex-1 bg-slate-50 p-10 overflow-y-auto flex flex-col items-center"><div className="w-full max-w-md"><EntityList /></div></div>
+                    ) : activeTab === 'timeline' ? (
+                        <div className="flex-1 bg-slate-50 p-10 overflow-y-auto flex flex-col"><Timeline variant="vertical" /></div>
                     ) : (
                         <div className="flex-1 overflow-hidden p-10 bg-slate-50 flex flex-col"><EntityDossier /></div>
                     )}
