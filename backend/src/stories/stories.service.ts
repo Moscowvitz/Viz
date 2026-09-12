@@ -367,6 +367,62 @@ export class StoriesService {
     );
   }
 
+  async refreshCharacterDescription(
+    storyId: string,
+    characterId: string,
+    userId: string,
+  ) {
+    await this.getStoryById(storyId, userId);
+
+    const { data: character } = await this.supabase
+      .from("narrative_elements")
+      .select("*")
+      .eq("id", characterId)
+      .eq("story_id", storyId)
+      .eq("element_type", "character")
+      .single();
+
+    if (!character) throw new NotFoundException("Character not found");
+
+    const [{ data: moments }, { data: narrations }] = await Promise.all([
+      this.supabase
+        .from("story_moments")
+        .select("title, description, narrative_weight")
+        .eq("story_id", storyId)
+        .contains("characters_involved", [characterId])
+        .order("timeline_position", { ascending: false })
+        .limit(8),
+      this.supabase
+        .from("raw_narrations")
+        .select("content, sequence_number")
+        .eq("story_id", storyId)
+        .order("sequence_number", { ascending: false })
+        .limit(8),
+    ]);
+
+    const description = await this.aiService.refreshCharacterDescription(
+      character.name,
+      character.attributes,
+      { moments: moments || [], narrations: narrations || [] },
+    );
+
+    const { data: updated, error } = await this.supabase
+      .from("narrative_elements")
+      .update({
+        attributes: {
+          ...(character.attributes || {}),
+          description,
+        },
+      })
+      .eq("id", characterId)
+      .eq("story_id", storyId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return updated;
+  }
+
   async mergeEntities(
     storyId: string,
     userId: string,

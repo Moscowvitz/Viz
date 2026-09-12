@@ -473,6 +473,37 @@ Your Response:`;
     return `"${userPrompt}?" ${characterName} turns to face you, exhibiting traits of ${traits}. "Some questions unearth truths neither of us are prepared to face."`;
   }
 
+  async refreshCharacterDescription(
+    characterName: string,
+    attributes: any,
+    context: { moments: any[]; narrations: any[] },
+  ) {
+    const prompt = `You are maintaining a living character dossier for a story.
+
+Character: ${characterName}
+Current dossier: ${JSON.stringify(attributes || {})}
+Recent confirmed story events: ${JSON.stringify(context.moments || [])}
+Recent narration excerpts: ${JSON.stringify(context.narrations || [])}
+
+Write an updated description of this character based only on the dossier and story evidence.
+Capture who they are, what has changed, and their current emotional or narrative position.
+Return only the description, in 2-4 clear sentences. Do not use headings, quotation marks, or invented facts.`;
+
+    if (this.aiProvider === "ollama") {
+      const description = await this.generateWithOllama(prompt);
+      if (description) return description;
+      throw new Error("Ollama returned an empty character description");
+    }
+
+    const client = this.getClient();
+    if (!client) throw new Error("Gemini is not configured");
+
+    const result = await this.generateWithFallback(client, { contents: prompt });
+    const description = result.text?.trim();
+    if (!description) throw new Error("Gemini returned an empty character description");
+    return description;
+  }
+
   /**
    * Generate cinematic portrait or concept visual for an entity
    */

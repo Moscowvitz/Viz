@@ -190,6 +190,19 @@ export class StoriesController {
     return { response };
   }
 
+  @Post(":id/characters/:characterId/refresh-description")
+  async refreshCharacterDescription(
+    @Request() req,
+    @Param("id") id: string,
+    @Param("characterId") characterId: string,
+  ) {
+    return this.storiesService.refreshCharacterDescription(
+      id,
+      characterId,
+      req.user.sub,
+    );
+  }
+
   @Post(":id/elements/:elementId/merge")
   async mergeElement(
     @Request() req,

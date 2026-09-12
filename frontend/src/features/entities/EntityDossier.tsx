@@ -11,6 +11,7 @@ import {
     useDeleteConnectionMutation,
     useGenerateElementVisualMutation,
     useInterviewCharacterMutation,
+    useRefreshCharacterDescriptionMutation,
     useMergeElementMutation
 } from '../../services/stories';
 import { useRevertElementMutation } from '../../services/suggestions';
@@ -645,6 +646,7 @@ export const EntityDossier: React.FC = () => {
     const [revertElement] = useRevertElementMutation();
     const [deleteConnection] = useDeleteConnectionMutation();
     const [generateVisual, { isLoading: isGeneratingVisual }] = useGenerateElementVisualMutation();
+    const [refreshDescription, { isLoading: isRefreshingDescription }] = useRefreshCharacterDescriptionMutation();
 
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -761,6 +763,15 @@ export const EntityDossier: React.FC = () => {
             await generateVisual({ storyId: id!, elementId: selectedId }).unwrap();
         } catch (err) {
             console.error('Failed to generate visual:', err);
+        }
+    };
+
+    const handleRefreshDescription = async () => {
+        if (!selectedId || selectedEntity?.element_type !== 'character' || isRefreshingDescription) return;
+        try {
+            await refreshDescription({ storyId: id!, characterId: selectedId }).unwrap();
+        } catch (err) {
+            console.error('Failed to refresh character description:', err);
         }
     };
 
@@ -1133,7 +1144,20 @@ export const EntityDossier: React.FC = () => {
                                 {/* Description Card */}
                                 <div className="p-6 sm:p-10 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
                                     <div className="space-y-4">
-                                        <h3 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">World Description</h3>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <h3 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">World Description</h3>
+                                            {selectedEntity.element_type === 'character' && !isEditMode && (
+                                                <button
+                                                    onClick={handleRefreshDescription}
+                                                    disabled={isRefreshingDescription}
+                                                    className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all disabled:opacity-50"
+                                                    title="Refresh character description from story"
+                                                    aria-label="Refresh character description from story"
+                                                >
+                                                    <RefreshCw className={`w-4 h-4 ${isRefreshingDescription ? 'animate-spin' : ''}`} />
+                                                </button>
+                                            )}
+                                        </div>
                                         {isEditMode ? (
                                             <textarea
                                                 value={editDesc}
