@@ -335,6 +335,72 @@ export class StoriesService {
     return { success: true };
   }
 
+  async generateMomentLabel(
+    storyId: string,
+    momentId: string,
+    userId: string,
+  ) {
+    await this.getStoryById(storyId, userId);
+    
+    // Get the moment and its context
+    const { data: moment } = await this.supabase
+      .from("story_moments")
+      .select("*")
+      .eq("id", momentId)
+      .single();
+
+    if (!moment) throw new NotFoundException("Moment not found");
+
+    // Get narration context
+    const { data: narration } = moment.created_from_narration
+      ? await this.supabase
+          .from("raw_narrations")
+          .select("*")
+          .eq("id", moment.created_from_narration)
+          .single()
+      : { data: null };
+
+    // Generate improved title and description using analysis
+    const context = {
+      recentEvents: [{ title: moment.title, description: moment.description }],
+    };
+
+    try {
+      const analysis = await this.aiService.analyzeNarration(
+        narration?.content || moment.title,
+        context,
+      );
+
+      // Extract title and description from AI analysis
+      let newTitle = moment.title;
+      let newDescription = moment.description;
+
+      // Use event title and description if available
+      if (analysis.extracted?.events && analysis.extracted.events.length > 0) {
+        const event = analysis.extracted.events[0];
+        newTitle = event.title;
+        newDescription = event.description;
+      }
+
+      // Update moment with AI-generated labels
+      const { data: updated, error } = await this.supabase
+        .from("story_moments")
+        .update({
+          title: newTitle,
+          description: newDescription,
+        })
+        .eq("id", momentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return updated;
+    } catch (error) {
+      // If AI generation fails, return original moment
+      return moment;
+    }
+  }
+
   async interviewStoryCharacter(
     storyId: string,
     characterId: string,

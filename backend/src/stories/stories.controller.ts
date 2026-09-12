@@ -174,6 +174,15 @@ export class StoriesController {
     return this.storiesService.deleteStoryMoment(id, momentId, req.user.sub);
   }
 
+  @Post(":id/timeline/:momentId/generate-label")
+  async generateMomentLabel(
+    @Request() req,
+    @Param("id") id: string,
+    @Param("momentId") momentId: string,
+  ) {
+    return this.storiesService.generateMomentLabel(id, momentId, req.user.sub);
+  }
+
   @Post(":id/interview/:characterId")
   async interviewCharacter(
     @Request() req,

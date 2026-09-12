@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useGetTimelineQuery } from '../../services/timeline';
 import { useParams } from 'react-router-dom';
-import { useUpdateMomentMutation, useDeleteMomentMutation } from '../../services/stories';
+import { useUpdateMomentMutation, useDeleteMomentMutation, useGenerateMomentLabelMutation } from '../../services/stories';
 import { useRevertMomentMutation } from '../../services/suggestions';
-import { Star, Trash2, RotateCcw, X, Check, Activity } from 'lucide-react';
+import { Star, Trash2, RotateCcw, X, Check, Activity, Wand2 } from 'lucide-react';
 
 interface TimelineProps {
     variant?: 'horizontal' | 'vertical';
@@ -15,6 +15,7 @@ export const Timeline: React.FC<TimelineProps> = ({ variant = 'horizontal' }) =>
     const [updateMoment] = useUpdateMomentMutation();
     const [revertMoment] = useRevertMomentMutation();
     const [deleteMoment] = useDeleteMomentMutation();
+    const [generateLabel, { isLoading: isGenerating }] = useGenerateMomentLabelMutation();
 
     const [editingMoment, setEditingMoment] = useState<any>(null);
     const [editTitle, setEditTitle] = useState('');
@@ -54,23 +55,53 @@ export const Timeline: React.FC<TimelineProps> = ({ variant = 'horizontal' }) =>
         setEditingMoment(null);
     };
 
+    const handleGenerateLabel = async () => {
+        if (!editingMoment) return;
+        try {
+            const result = await generateLabel({ storyId: id!, momentId: editingMoment.id }).unwrap();
+            setEditTitle(result.title);
+            setEditDesc(result.description || '');
+        } catch (err) {
+            console.error('Failed to generate label:', err);
+        }
+    };
+
     if (variant === 'vertical') {
         return (
-            <div className="flex flex-col gap-8 relative py-4">
+            <div className="flex flex-col gap-6 relative py-4">
                 <div className="absolute left-[7px] top-0 bottom-0 w-0.5 bg-slate-100 -z-10" />
-                {moments?.map((m: any) => (
-                    <div
-                        key={m.id}
-                        onClick={() => startEditing(m)}
-                        className="flex gap-4 group cursor-pointer"
-                    >
-                        <div className={`mt-1.5 w-4 h-4 rounded-full border-4 border-white shrink-0 transition-all ${m.narrative_weight > 7 ? 'bg-indigo-600 scale-125' : 'bg-slate-300 group-hover:bg-indigo-400'}`} />
-                        <div className="flex flex-col gap-1">
-                            <h4 className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-tight">{m.title}</h4>
-                            <p className="text-[10px] text-slate-400 font-medium line-clamp-2 leading-relaxed italic">{m.description || 'A key narrative beat...'}</p>
+                {moments?.map((m: any) => {
+                    const emotions = m.emotional_signature ? Object.entries(m.emotional_signature)
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 1)
+                        .map(([emotion]) => emotion)
+                        .join('') : '';
+                    
+                    return (
+                        <div
+                            key={m.id}
+                            onClick={() => startEditing(m)}
+                            className="flex gap-4 group cursor-pointer hover:bg-indigo-50 p-3 rounded-lg transition-all"
+                        >
+                            <div className={`mt-0.5 w-4 h-4 rounded-full border-4 border-white shrink-0 transition-all ${m.narrative_weight > 7 ? 'bg-indigo-600 scale-125' : 'bg-slate-300 group-hover:bg-indigo-400'}`} />
+                            <div className="flex flex-col gap-2 flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                    <h4 className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-600 transition-colors leading-tight flex-1">{m.title}</h4>
+                                    {emotions && (
+                                        <span className="text-xs shrink-0 text-indigo-600">✨ {emotions}</span>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-medium leading-snug">{m.description || 'A key moment in the narrative...'}</p>
+                                <div className="flex items-center gap-2 text-[9px]">
+                                    <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-indigo-500" style={{ width: `${(m.narrative_weight / 10) * 100}%` }} />
+                                    </div>
+                                    <span className="text-slate-400 font-medium">{m.narrative_weight}/10</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
                 {/* Editing Modal (Shared) */}
                 {renderModal()}
@@ -105,7 +136,17 @@ export const Timeline: React.FC<TimelineProps> = ({ variant = 'horizontal' }) =>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AI Interpretation</label>
+                            <div className="flex items-center justify-between ml-1 mb-2">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AI Interpretation</label>
+                                <button
+                                    onClick={handleGenerateLabel}
+                                    disabled={isGenerating}
+                                    className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-bold text-[9px] uppercase tracking-widest disabled:opacity-50"
+                                >
+                                    <Wand2 className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                                    {isGenerating ? 'Generating...' : 'Generate'}
+                                </button>
+                            </div>
                             <textarea
                                 value={editDesc}
                                 onChange={(e) => setEditDesc(e.target.value)}
@@ -152,13 +193,20 @@ export const Timeline: React.FC<TimelineProps> = ({ variant = 'horizontal' }) =>
                 {moments?.map((moment: any, index: number) => {
                     const isMajor = moment.narrative_weight > 7;
                     const isSelected = editingMoment?.id === moment.id;
+                    
+                    // Extract emotions from emotional_signature for better label
+                    const emotions = moment.emotional_signature ? Object.entries(moment.emotional_signature)
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 2)
+                        .map(([emotion]) => emotion)
+                        .join(' / ') : '';
 
                     return (
                         <div
                             key={moment.id}
                             onClick={() => startEditing(moment)}
                             className={`relative flex flex-col items-center group cursor-pointer transition-all duration-300 ${isSelected ? 'scale-110' : ''}`}
-                            style={{ width: '200px' }}
+                            style={{ width: '220px' }}
                         >
                             <div className={`
                                 w-4 h-4 rounded-full border-4 border-slate-50 transition-all duration-300 z-10
@@ -169,15 +217,25 @@ export const Timeline: React.FC<TimelineProps> = ({ variant = 'horizontal' }) =>
                             </div>
 
                             <div className={`
-                                absolute w-48 text-center transition-all duration-300
-                                ${index % 2 === 0 ? '-top-20' : 'top-10'}
-                                ${isSelected ? 'opacity-100 scale-105' : 'opacity-80 group-hover:opacity-100 group-hover:scale-105'}
+                                absolute w-56 text-center transition-all duration-300 bg-white rounded-lg p-3 shadow-sm border border-slate-100
+                                ${index % 2 === 0 ? '-top-28' : 'top-12'}
+                                ${isSelected ? 'opacity-100 scale-100 shadow-lg' : 'opacity-0 group-hover:opacity-100 group-hover:scale-100 pointer-events-none'}
                             `}>
-                                <h4 className={`font-bold text-sm line-clamp-1 ${isSelected ? 'text-indigo-600' : 'text-slate-800'}`}>
+                                <h4 className={`font-bold text-xs leading-snug ${isSelected ? 'text-indigo-600' : 'text-slate-800'}`}>
                                     {moment.title}
                                 </h4>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter mt-1">
-                                    {moment.description || 'Impact: ' + moment.narrative_weight}
+                                {moment.description && (
+                                    <p className="text-[9px] text-slate-600 mt-2 leading-relaxed line-clamp-3">
+                                        {moment.description}
+                                    </p>
+                                )}
+                                {emotions && (
+                                    <p className="text-[9px] text-indigo-500 uppercase font-bold tracking-tight mt-2 italic">
+                                        ✨ {emotions}
+                                    </p>
+                                )}
+                                <p className="text-[8px] text-slate-400 mt-2 font-medium">
+                                    Impact: {moment.narrative_weight}/10
                                 </p>
                             </div>
                         </div>

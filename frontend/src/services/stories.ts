@@ -133,6 +133,13 @@ export const storiesApi = baseApi.injectEndpoints({
             }),
             invalidatesTags: ['Moment'],
         }),
+        generateMomentLabel: builder.mutation<any, { storyId: string; momentId: string }>({
+            query: ({ storyId, momentId }) => ({
+                url: `/stories/${storyId}/timeline/${momentId}/generate-label`,
+                method: 'POST',
+            }),
+            invalidatesTags: (_result, _error, { momentId }) => [{ type: 'Moment', id: momentId }, 'Moment'],
+        }),
         interviewCharacter: builder.mutation<string, { storyId: string; characterId: string; prompt: string }>({
             query: ({ storyId, characterId, prompt }) => ({
                 url: `/stories/${storyId}/interview/${characterId}`,
@@ -184,6 +191,7 @@ export const {
     useGetStoryTimelineQuery,
     useUpdateMomentMutation,
     useDeleteMomentMutation,
+    useGenerateMomentLabelMutation,
     useGetStoryConnectionsQuery,
     useCreateConnectionMutation,
     useUpdateConnectionMutation,
