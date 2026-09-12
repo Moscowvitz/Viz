@@ -18,7 +18,7 @@ We're not a writing tool. We're a **narrative understanding engine** that:
 - Node.js >= 18.0.0
 - npm >= 9.0.0
 - Supabase account
-- Google Gemini API key
+- Ollama installed locally with a downloaded model, such as `llama3.2`
 
 ### Installation
 
@@ -30,7 +30,7 @@ npm install
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
-# Add your credentials to the .env files
+# Set `AI_PROVIDER=ollama` and configure `OLLAMA_MODEL` in `.env`
 
 # Start development servers
 npm run dev
@@ -54,7 +54,7 @@ story-engine/
 - **Backend**: NestJS
 - **Frontend**: React + Vite + Redux Toolkit
 - **Database**: Supabase (PostgreSQL)
-- **AI**: Google Gemini
+- **AI**: Ollama locally, with Gemini available through the `AI_PROVIDER` feature flag
 - **Auth**: Supabase Auth
 - **Styling**: ShadCN UI + TailwindCSS
 

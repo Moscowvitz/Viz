@@ -85,11 +85,24 @@ const AnalysisSchema = z.object({
 export class AiService {
   private aiClient: GoogleGenAI | null = null;
   private readonly logger = new Logger(AiService.name);
+  private readonly aiProvider: "ollama" | "gemini";
+  private readonly ollamaHost: string;
+  private readonly ollamaModel: string;
 
   constructor(private configService: ConfigService) {
+    const configuredProvider = this.configService
+      .get<string>("AI_PROVIDER")
+      ?.toLowerCase();
+    this.aiProvider = configuredProvider === "gemini" ? "gemini" : "ollama";
+    this.ollamaHost = (
+      this.configService.get<string>("OLLAMA_HOST") || "http://127.0.0.1:11434"
+    ).replace(/\/$/, "");
+    this.ollamaModel =
+      this.configService.get<string>("OLLAMA_MODEL") || "llama3.2";
+
     const apiKey = this.configService.get<string>("GEMINI_API_KEY");
 
-    if (apiKey) {
+    if (this.aiProvider === "gemini" && apiKey) {
       try {
         this.aiClient = new GoogleGenAI({
           apiKey,
@@ -103,8 +116,10 @@ export class AiService {
       } catch (err) {
         this.logger.warn("[AiService] Error initializing GoogleGenAI:", err);
       }
-    } else {
+    } else if (this.aiProvider === "gemini") {
       this.logger.warn("[AiService] GEMINI_API_KEY is not configured. Narrative intelligence will use smart local fallbacks.");
+    } else {
+      this.logger.log(`[AiService] Ollama provider enabled: ${this.ollamaHost} (${this.ollamaModel})`);
     }
   }
 
@@ -149,6 +164,68 @@ export class AiService {
     }
   }
 
+  private async generateWithOllama(prompt: string, format?: unknown): Promise<string> {
+    const response = await fetch(`${this.ollamaHost}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.ollamaModel,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        ...(format ? { format } : {}),
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama returned ${response.status}: ${await response.text()}`);
+    }
+
+    const result = (await response.json()) as { message?: { content?: string } };
+    return result.message?.content?.trim() || "";
+  }
+
+  private normalizeAnalysis(value: any) {
+    const clamp = (input: unknown, minimum: number, maximum: number) => {
+      const number = typeof input === "number" ? input : Number(input);
+      if (!Number.isFinite(number)) return minimum;
+      return Math.min(maximum, Math.max(minimum, number));
+    };
+
+    for (const event of value?.extracted?.events || []) {
+      event.importance = clamp(event.importance, 1, 10);
+    }
+    for (const connection of value?.extracted?.connections || []) {
+      connection.weight = clamp(connection.weight, 1, 10);
+      connection.emotional_charge = clamp(connection.emotional_charge, -10, 10);
+    }
+    for (const character of value?.extracted?.characters || []) {
+      character.confidence = clamp(character.confidence, 0, 1);
+      if (character.attributes?.sentiment_score !== undefined) {
+        character.attributes.sentiment_score = clamp(
+          character.attributes.sentiment_score,
+          -10,
+          10,
+        );
+      }
+    }
+    for (const element of [
+      ...(value?.extracted?.locations || []),
+      ...(value?.extracted?.organizations || []),
+    ]) {
+      element.confidence = clamp(element.confidence, 0, 1);
+      if (element.attributes?.sentiment_score !== undefined) {
+        element.attributes.sentiment_score = clamp(
+          element.attributes.sentiment_score,
+          -10,
+          10,
+        );
+      }
+    }
+
+    return value;
+  }
+
   /**
    * Analyze narration to extract elements and generate a response in a single pass.
    */
@@ -170,10 +247,26 @@ export class AiService {
     CRITICAL: 
     1. If a character/location matches an existing entity name, use that EXACT name.
     2. Do not invent details not present in the text.
+    3. Numeric ranges are strict: importance and connection weight must be 1-10, confidence 0-1, sentiment_score and emotional_charge -10 to 10.
     `;
 
-    const client = this.getClient();
-    if (client) {
+    if (this.aiProvider === "ollama") {
+      try {
+        const jsonSchema = zodToJsonSchema(AnalysisSchema as any, {
+          $refStrategy: "none",
+        });
+        const responseText = await this.generateWithOllama(prompt, jsonSchema);
+        if (responseText) {
+          return AnalysisSchema.parse(
+            this.normalizeAnalysis(JSON.parse(responseText)),
+          );
+        }
+      } catch (error) {
+        this.logger.error("[AiService] Ollama analysis failed:", error);
+      }
+    } else {
+      const client = this.getClient();
+      if (client) {
       try {
         this.logger.log(`[AiService] Analyzing narration with Structured Output via ${this.PRIMARY_MODEL}...`);
 
@@ -220,6 +313,7 @@ export class AiService {
         }
       } catch (error) {
         this.logger.error("[AiService] Gemini analysis failed:", error);
+      }
       }
     }
 
@@ -295,8 +389,17 @@ Return ONLY a valid JSON array of objects:
   { "title": "Option 3 Title", "description": "Evocative summary" }
 ]`;
 
-    const client = this.getClient();
-    if (client) {
+    if (this.aiProvider === "ollama") {
+      try {
+        const text = await this.generateWithOllama(prompt, "json");
+        const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        return JSON.parse(clean);
+      } catch (error) {
+        this.logger.error("[AiService] Error brainstorming theme with Ollama:", error);
+      }
+    } else {
+      const client = this.getClient();
+      if (client) {
       try {
         const result = await this.generateWithFallback(client, {
           contents: prompt,
@@ -309,6 +412,7 @@ Return ONLY a valid JSON array of objects:
         return JSON.parse(clean);
       } catch (error) {
         this.logger.error("[AiService] Error brainstorming theme:", error);
+      }
       }
     }
 
@@ -343,8 +447,16 @@ CRITICAL RULE:
 
 Your Response:`;
 
-    const client = this.getClient();
-    if (client) {
+    if (this.aiProvider === "ollama") {
+      try {
+        const dialogue = await this.generateWithOllama(prompt);
+        if (dialogue) return dialogue;
+      } catch (error) {
+        this.logger.error("[AiService] Error simulating dialogue with Ollama:", error);
+      }
+    } else {
+      const client = this.getClient();
+      if (client) {
       try {
         const result = await this.generateWithFallback(client, {
           contents: prompt,
@@ -353,6 +465,7 @@ Your Response:`;
         if (dialogue) return dialogue;
       } catch (error) {
         this.logger.error("[AiService] Error simulating dialogue:", error);
+      }
       }
     }
 
@@ -371,7 +484,7 @@ Your Response:`;
   ): Promise<string> {
     const prompt = `Cinematic high-detail ${type} concept art portrait of "${name}". Context: ${description || "legendary figure"}. Key traits: ${traits.join(", ") || "evocative atmosphere"}. Dramatic volumetric lighting, rich color, 8k resolution fantasy/sci-fi illustration.`;
 
-    const client = this.getClient();
+    const client = this.aiProvider === "gemini" ? this.getClient() : null;
     if (client) {
       try {
         const response = await (client as any).models.generateImages({

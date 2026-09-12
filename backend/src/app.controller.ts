@@ -30,6 +30,8 @@ export class AppController {
       status: "ok",
       database: isRealSupabase ? "real_supabase" : "in_memory_mock",
       supabaseUrl: isRealSupabase ? supabaseUrl : null,
+      aiProvider: this.configService.get<string>("AI_PROVIDER") || "ollama",
+      ollamaModel: this.configService.get<string>("OLLAMA_MODEL") || "llama3.2",
       geminiConfigured: hasGeminiKey,
       timestamp: new Date().toISOString(),
     };
