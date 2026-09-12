@@ -95,7 +95,7 @@ export class SuggestionsService {
       // 1. Resolve or Create Element
       const { data: existing } = await this.supabase
         .from("narrative_elements")
-        .select("id")
+        .select("id, attributes, confidence_score")
         .eq("story_id", story_id)
         .eq("name", data.name)
         .single();
@@ -118,9 +118,33 @@ export class SuggestionsService {
           .single();
         elementId = created.id;
       } else {
+        const existingAttributes = existing.attributes || {};
+        const incomingAttributes = data.attributes || {};
+        const mergedAttributes = {
+          ...existingAttributes,
+          ...incomingAttributes,
+          ...(incomingAttributes.traits
+            ? {
+                traits: Array.from(
+                  new Set([
+                    ...(existingAttributes.traits || []),
+                    ...incomingAttributes.traits,
+                  ]),
+                ),
+              }
+            : {}),
+        };
+
         await this.supabase
           .from("narrative_elements")
-          .update({ last_mentioned_in_narration: narration_id })
+          .update({
+            attributes: mergedAttributes,
+            last_mentioned_in_narration: narration_id,
+            confidence_score: Math.max(
+              existing.confidence_score || 0,
+              data.confidence || 0,
+            ),
+          })
           .eq("id", elementId);
       }
 
