@@ -72,7 +72,7 @@ async function bootstrap() {
     next();
   });
 
-  const port = 3000;
+  const port = 1100;
   await app.listen(port, "0.0.0.0");
   console.log(`[StoryEngine] Server successfully running on http://0.0.0.0:${port}`);
 }

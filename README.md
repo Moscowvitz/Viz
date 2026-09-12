@@ -36,7 +36,7 @@ cp frontend/.env.example frontend/.env
 npm run dev
 ```
 
-The backend will run on `http://localhost:3000` and frontend on `http://localhost:5173`.
+The backend will run on `http://localhost:1100` and frontend on `http://localhost:5173`.
 
 ## 📁 Project Structure
 

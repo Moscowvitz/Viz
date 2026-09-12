@@ -51,5 +51,5 @@ if (!fs.existsSync(backendDist) || !fs.existsSync(frontendDist)) {
   execSync('npm run build', { stdio: 'inherit' });
 }
 
-console.log('[StoryEngine] Starting server at http://0.0.0.0:3000...');
+console.log('[StoryEngine] Starting server at http://0.0.0.0:1100...');
 require('./backend/dist/main.js');
