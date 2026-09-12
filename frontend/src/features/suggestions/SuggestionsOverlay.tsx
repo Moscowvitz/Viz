@@ -63,7 +63,7 @@ export const SuggestionsOverlay: React.FC = () => {
         };
 
         return (
-            <div key={s.id} className="min-w-[280px] max-w-[280px] bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all animate-in slide-in-from-right-4 duration-500 flex flex-col justify-between">
+            <div key={s.id} className="min-w-[280px] max-w-[280px] min-h-[280px] bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all animate-in slide-in-from-right-4 duration-500 flex flex-col justify-between">
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export const SuggestionsOverlay: React.FC = () => {
     };
 
     return (
-        <div className="w-full flex flex-col h-72">
+        <div className="w-full flex flex-col h-96">
             <div className="px-10 py-3 flex items-center justify-between border-b border-slate-50">
                 <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse" />
