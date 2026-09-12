@@ -48,3 +48,5 @@ Thumbs.db
 # Test scripts (temporary)
 test-gemini.js
 list-models.js
+
+.aider.*
