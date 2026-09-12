@@ -117,7 +117,7 @@ export const SuggestionsOverlay: React.FC = () => {
     };
 
     return (
-        <div className="w-full flex flex-col h-40">
+        <div className="w-full flex flex-col h-72">
             <div className="px-10 py-3 flex items-center justify-between border-b border-slate-50">
                 <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse" />
