@@ -93,7 +93,7 @@ export const SuggestionsOverlay: React.FC = () => {
                             </button>
                         </div>
                     )}
-                    <p className="text-[11px] text-slate-500 italic line-clamp-2 leading-relaxed h-8">
+                    <p className="text-[11px] text-slate-500 italic line-clamp-4 leading-relaxed">
                         {type === 'element' ? data.mention_phrase : type === 'moment' ? data.description : `Linked ${data.from} to ${data.to}`}
                     </p>
                 </div>

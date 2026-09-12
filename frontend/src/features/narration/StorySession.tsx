@@ -305,7 +305,7 @@ export const StorySession: React.FC = () => {
                                     {narrations?.map((n: any) => (
                                         <div key={n.id} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                             <div className="group relative">
-                                                <div className="absolute -left-12 top-0 text-[9px] font-bold text-slate-200 uppercase vertical-text tracking-widest pointer-events-none">SEQ // 00{n.sequence_number + 1}</div>
+                                                <div className="absolute -left-12 top-0 text-[9px] font-bold text-slate-200 uppercase vertical-text tracking-widest pointer-events-none">{n.sequence_number + 1}</div>
                                                 <div className="p-10 bg-white rounded-[2rem] border border-slate-100 shadow-sm group-hover:shadow-md transition-all duration-500 ring-4 ring-transparent hover:ring-slate-50/50">
                                                     <p className="text-xl text-slate-800 leading-relaxed font-serif tracking-tight">{n.content}</p>
                                                 </div>
@@ -321,10 +321,10 @@ export const StorySession: React.FC = () => {
                                                         <p className="text-indigo-900 text-md italic leading-relaxed font-serif opacity-80">"{n.listener_response}"</p>
                                                         <div className="flex flex-wrap gap-2 pt-1 opacity-60">
                                                             {n.extracted?.characters?.map((c: any) => (
-                                                                <span key={c.name} className="px-2 py-1 bg-indigo-50 text-[9px] font-bold text-indigo-600 rounded-lg border border-indigo-100 uppercase tracking-widest">Character // {c.name}</span>
+                                                                <span key={c.name} className="px-2 py-1 bg-indigo-50 text-[9px] font-bold text-indigo-600 rounded-lg border border-indigo-100 uppercase tracking-widest">Character : {c.name}</span>
                                                             ))}
                                                             {n.extracted?.events?.map((e: any) => (
-                                                                <span key={e.title} className="px-2 py-1 bg-emerald-50 text-[9px] font-bold text-emerald-600 rounded-lg border border-emerald-100 uppercase tracking-widest">Event // {e.title}</span>
+                                                                <span key={e.title} className="px-2 py-1 bg-emerald-50 text-[9px] font-bold text-emerald-600 rounded-lg border border-emerald-100 uppercase tracking-widest">Event : {e.title}</span>
                                                             ))}
                                                         </div>
                                                     </div>
